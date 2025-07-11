@@ -1,12 +1,14 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
+# Create SQLAlchemy instance
 db = SQLAlchemy()
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -44,8 +46,10 @@ class Favorite(db.Model):
 class PriceAlert(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    product_name = db.Column(db.String(200), nullable=False)
     product_url = db.Column(db.Text, nullable=False)
     target_price = db.Column(db.Float, nullable=False)
     current_price = db.Column(db.Float)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_checked = db.Column(db.DateTime)
