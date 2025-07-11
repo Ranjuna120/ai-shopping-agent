@@ -1,10 +1,109 @@
-import React, { useState, useEffect } from "react";
-import './App.css'; // Import the CSS file for styling
-import logo from './images/logo.jpg'; // Assuming the logo is in the assets folder
+import React, { useState } from "react";
+import './App.css';
+import logo from './images/logo.jpg';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import ProductCard from './components/ProductCard';
+import axios from 'axios';
 
-function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [username, setUsername] = useState('');
+// Configure axios base URL
+axios.defaults.baseURL = 'http://127.0.0.1:5000';
+
+// Login Component
+function LoginForm() {
+  const [isLogin, setIsLogin] = useState(true);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    username: ''
+  });
+  const [error, setError] = useState('');
+  const { login, register, loading } = useAuth();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    
+    const result = isLogin 
+      ? await login(formData.email, formData.password)
+      : await register(formData.username, formData.email, formData.password);
+    
+    if (!result.success) {
+      setError(result.error);
+    }
+  };
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  return (
+    <div className="auth-container">
+      <div className="auth-card">
+        <img src={logo} alt="AI Shopping Agent" className="auth-logo" />
+        <h2>🛒 AI Shopping Agent</h2>
+        <p className="auth-subtitle">Your intelligent shopping companion</p>
+        
+        {error && <div className="error-message">{error}</div>}
+        
+        <form onSubmit={handleSubmit} className="auth-form">
+          {!isLogin && (
+            <input
+              type="text"
+              name="username"
+              placeholder="Username"
+              value={formData.username}
+              onChange={handleChange}
+              required
+              className="auth-input"
+            />
+          )}
+          
+          <input
+            type="email"
+            name="email"
+            placeholder="Email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            className="auth-input"
+          />
+          
+          <input
+            type="password"
+            name="password"
+            placeholder="Password"
+            value={formData.password}
+            onChange={handleChange}
+            required
+            className="auth-input"
+          />
+          
+          <button type="submit" disabled={loading} className="auth-button">
+            {loading ? 'Please wait...' : (isLogin ? 'Login' : 'Register')}
+          </button>
+        </form>
+        
+        <p className="auth-switch">
+          {isLogin ? "Don't have an account? " : "Already have an account? "}
+          <button 
+            type="button" 
+            onClick={() => setIsLogin(!isLogin)}
+            className="link-button"
+          >
+            {isLogin ? 'Register' : 'Login'}
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Main Shopping Component
+function ShoppingApp() {
+  const { user, logout } = useAuth();
   const [criteria, setCriteria] = useState({ budget: "", product: "" });
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -12,18 +111,13 @@ function App() {
   const [filterText, setFilterText] = useState("");
   const [useNLP, setUseNLP] = useState(false);
   const [currency, setCurrency] = useState("USD");
-  const [language, setLanguage] = useState("en");
-  const [optimization, setOptimization] = useState("value");
   const [error, setError] = useState(null);
-  const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [chatMessages, setChatMessages] = useState([]); // State for chat messages
-  const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-
-  const handleLogin = (name) => {
-    setUsername(name);
-    setIsLoggedIn(true);
-  };
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [favorites, setFavorites] = useState([]);
+  const [favoritesLoading, setFavoritesLoading] = useState(false);
+  const [showPriceAlerts, setShowPriceAlerts] = useState(false);
+  const [priceAlerts, setPriceAlerts] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -31,7 +125,7 @@ function App() {
     if (hour < 12) greeting = "Good morning";
     else if (hour < 18) greeting = "Good afternoon";
     else greeting = "Good evening";
-    return `${greeting}, ${username}`;
+    return `${greeting}, ${user?.username}`;
   };
 
   const getAssistantMessage = () => {
@@ -45,290 +139,393 @@ function App() {
     return "How may I assist you further?";
   };
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      const greetingMessage = getGreeting();
-      const speech = new SpeechSynthesisUtterance(greetingMessage);
-      window.speechSynthesis.speak(speech);
+  const handleSearch = async () => {
+    if (!criteria.budget || !criteria.product) {
+      setError("Please enter both budget and product");
+      return;
     }
 
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-      if (criteria.budget && criteria.product) {
-        document.querySelector('.submit-button').click();
-      }
-    };
-
-    recognition.onresult = (event) => {
-      const latestTranscript = event.results[event.results.length - 1][0].transcript;
-      setTranscript(latestTranscript);
-
-      const budgetMatch = latestTranscript.match(/\d+/);
-      const productMatch = latestTranscript.replace("product", "").trim();
-
-      if (budgetMatch) {
-        setCriteria((prev) => ({ ...prev, budget: budgetMatch[0] }));
-      }
-
-      if (productMatch) {
-        setCriteria((prev) => ({ ...prev, product: productMatch }));
-      }
-
-      if (budgetMatch && productMatch) {
-        document.querySelector('.submit-button').click();
-      }
-    };
-
-    return () => {
-      recognition.stop();
-    };
-  }, [criteria, isLoggedIn]);
-
-  const handleChange = (e) => {
-    setCriteria({ ...criteria, [e.target.name]: e.target.value });
-  };
-
-  const handleSortChange = (e) => {
-    setSortOption(e.target.value);
-    setResults((prevResults) =>
-      [...prevResults].sort((a, b) => (e.target.value === "price" ? a.price - b.price : a.name.localeCompare(b.name)))
-    );
-  };
-
-  const handleFilterChange = (e) => {
-    setFilterText(e.target.value);
-  };
-
-  const handleNLPChange = (e) => {
-    setUseNLP(e.target.checked);
-  };
-
-  const handleCurrencyChange = (e) => {
-    setCurrency(e.target.value);
-  };
-
-  const handleLanguageChange = (e) => {
-    setLanguage(e.target.value);
-  };
-
-  const handleOptimizationChange = (e) => {
-    setOptimization(e.target.value);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/recommend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...criteria, use_nlp: useNLP, currency, language, optimization }),
+      const response = await axios.post('/api/auth/recommend', {
+        budget: parseFloat(criteria.budget),
+        product: criteria.product,
+        use_nlp: useNLP,
+        currency: currency,
+        language: 'en'
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch recommendations.");
-      }
-
-      const data = await response.json();
-      setResults(data.sort((a, b) => a.price - b.price));
+      setResults(response.data);
     } catch (error) {
-      console.error(error);
-      setError("An error occurred while fetching recommendations.");
+      setError(error.response?.data?.error || 'Search failed');
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredResults = results.filter((item) =>
-    item.name.toLowerCase().includes(filterText.toLowerCase())
-  );
-
-  const startListening = () => {
-    recognition.start();
-  };
-
-  const handleChatSubmit = async (message) => {
-    setChatMessages((prev) => [...prev, { text: message, sender: "user" }]);
+  const handleAddToFavorites = async (product) => {
     try {
-      const response = await fetch("http://localhost:5000/api/auth/chatgpt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: message }),
+      await axios.post('/api/favorites', {
+        product_name: product.name,
+        product_url: product.url,
+        price: product.price,
+        platform: product.platform
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to get response from ChatGPT.");
-      }
-
-      const data = await response.json();
-      setChatMessages((prev) => [...prev, { text: data.chatgpt_response, sender: "chatgpt" }]);
+      alert('Added to favorites!');
+      // Reload favorites to update count
+      loadFavorites();
     } catch (error) {
-      console.error(error);
-      setChatMessages((prev) => [...prev, { text: "Error: Unable to get response.", sender: "chatgpt" }]);
+      console.error('Error adding to favorites:', error);
+      if (error.response?.status === 409) {
+        alert('Product already in favorites!');
+      }
     }
   };
 
-  if (!isLoggedIn) {
-    return (
-      <div className="login-container">
-        <h1>Login</h1>
-        <input
-          type="text"
-          placeholder="Enter your name"
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <button onClick={() => handleLogin(username)}>Login</button>
-      </div>
-    );
-  }
+  const handlePriceAlert = async (product) => {
+    const targetPrice = prompt(`🔔 Set Price Alert for "${product.name}"\n\nCurrent Price: $${product.price}\nAlert me when price drops below: $`);
+    
+    if (targetPrice && !isNaN(targetPrice)) {
+      const target = parseFloat(targetPrice);
+      
+      if (target >= product.price) {
+        alert('⚠️ Target price must be lower than current price!');
+        return;
+      }
+      
+      try {
+        await axios.post('/api/price-alerts', {
+          product_name: product.name,
+          product_url: product.url,
+          target_price: target
+        });
+        alert(`✅ Price alert set! You'll be notified when price drops below $${target}`);
+        // Reload price alerts if view is open
+        if (showPriceAlerts) {
+          loadPriceAlerts();
+        }
+      } catch (error) {
+        console.error('Error creating price alert:', error);
+        if (error.response?.status === 409) {
+          alert('Price alert already exists for this product!');
+        } else {
+          alert('Failed to create price alert. Please try again.');
+        }
+      }
+    }
+  };
+
+  const removePriceAlert = async (alertId) => {
+    try {
+      await axios.delete(`/api/price-alerts/${alertId}`);
+      setPriceAlerts(priceAlerts.filter(alert => alert.id !== alertId));
+      alert('🗑️ Price alert removed!');
+    } catch (error) {
+      console.error('Error removing price alert:', error);
+    }
+  };
+
+  const loadFavorites = async () => {
+    setFavoritesLoading(true);
+    try {
+      const response = await axios.get('/api/favorites');
+      setFavorites(response.data);
+    } catch (error) {
+      console.error('Error loading favorites:', error);
+    } finally {
+      setFavoritesLoading(false);
+    }
+  };
+
+  const loadPriceAlerts = async () => {
+    setAlertsLoading(true);
+    try {
+      const response = await axios.get('/api/price-alerts');
+      setPriceAlerts(response.data);
+    } catch (error) {
+      console.error('Error loading price alerts:', error);
+    } finally {
+      setAlertsLoading(false);
+    }
+  };
+
+  const handleShowFavorites = () => {
+    setShowFavorites(!showFavorites);
+    setShowPriceAlerts(false); // Hide alerts when showing favorites
+    if (!showFavorites && favorites.length === 0) {
+      loadFavorites();
+    }
+  };
+
+  const handleShowPriceAlerts = () => {
+    setShowPriceAlerts(!showPriceAlerts);
+    setShowFavorites(false); // Hide favorites when showing alerts
+    if (!showPriceAlerts && priceAlerts.length === 0) {
+      loadPriceAlerts();
+    }
+  };
+
+  const removeFavorite = async (favoriteId) => {
+    try {
+      await axios.delete(`/api/favorites/${favoriteId}`);
+      setFavorites(favorites.filter(fav => fav.id !== favoriteId));
+      alert('Removed from favorites!');
+    } catch (error) {
+      console.error('Error removing favorite:', error);
+    }
+  };
+
+  const filteredResults = results.filter(result =>
+    result.name.toLowerCase().includes(filterText.toLowerCase())
+  );
+
+  const sortedResults = [...filteredResults].sort((a, b) => {
+    if (sortOption === "price") return a.price - b.price;
+    if (sortOption === "name") return a.name.localeCompare(b.name);
+    if (sortOption === "rating") return (b.rating || 0) - (a.rating || 0);
+    return 0;
+  });
 
   return (
-    <div className="app-container">
-      <img src={logo} alt="Logo" className="logo" />
-      <h1 className="title">AI Shopping Agent</h1>
-      <h2>{getGreeting()}. {getAssistantMessage()}</h2>
+    <div className="shopping-app">
+      {/* Header */}
+      <header className="app-header">
+        <div className="header-content">
+          <div className="logo-section">
+            <img src={logo} alt="AI Shopping Agent" className="header-logo" />
+            <h1>🛒 AI Shopping Agent</h1>
+          </div>
+          <div className="user-section">
+            <span className="greeting">{getGreeting()}</span>
+            <button onClick={handleShowPriceAlerts} className="alerts-btn">
+              🔔 Alerts ({priceAlerts.length})
+            </button>
+            <button onClick={handleShowFavorites} className="favorites-btn">
+              ❤️ Favorites ({favorites.length})
+            </button>
+            <button onClick={logout} className="logout-btn">Logout</button>
+          </div>
+        </div>
+      </header>
 
-      {error && <p className="error-message">{error}</p>}
-
-      <form onSubmit={handleSubmit} className="form-container">
-        <div className="form-group">
-          <label>Budget:</label>
-          <input
-            type="number"
-            name="budget"
-            value={criteria.budget}
-            onChange={handleChange}
-            required
-            className="input-field"
-            aria-label="Enter your budget"
-          />
-        </div>
-        
-        <div className="form-group">
-          <label>Product Type:</label>
-          <input
-            type="text"
-            name="product"
-            value={criteria.product}
-            onChange={handleChange}
-            required
-            className="input-field"
-            aria-label="Enter product type"
-          />
-        </div>
-        <div className="form-group">
-          <label>Optimization Criteria:</label>
-          <select value={optimization} onChange={handleOptimizationChange} className="select-field" aria-label="Select optimization criteria">
-            <option value="value">Maximum Value</option>
-            <option value="price">Minimum Price</option>
-            <option value="reviews">Best Reviews</option>
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Use NLP for better results:</label>
-          <input
-            type="checkbox"
-            checked={useNLP}
-            onChange={handleNLPChange}
-            className="checkbox"
-            aria-label="Enable NLP for better results"
-          />
-        </div>
-        <div className="form-group">
-          <label>Currency:</label>
-          <select value={currency} onChange={handleCurrencyChange} className="select-field" aria-label="Select currency">
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="INR">INR</option>
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Language:</label>
-          <select value={language} onChange={handleLanguageChange} className="select-field" aria-label="Select language">
-            <option value="en">English</option>
-            <option value="es">Spanish</option>
-            <option value="fr">French</option>
-          </select>
-        </div>
-        <button
-          type="button"
-          onClick={startListening}
-          className="voice-button"
-          disabled={isListening}
-          aria-label="Activate voice command for budget and product"
-        >
-          {isListening ? "Listening..." : "Voice Command for Budget and Product"}
-        </button>
-        <button type="submit" disabled={loading} className="submit-button" aria-label="Submit your request for recommendations">
-          {loading ? "Loading..." : "Get Recommendations"}
-        </button>
-      </form>
-
-      <div className="transcript-container">
-        <h3>Voice Input:</h3>
-        <p>{transcript}</p>
-      </div>
-
-      <div className="filters-container">
-        <h2>Filters & Sorting</h2>
-        <div className="filter-group">
-          <label> Sort by:</label>
-          <select value={sortOption} onChange={handleSortChange} className="select-field" aria-label="Sort results by">
-            <option value="price">Price</option>
-            <option value="name">Name</option>
-          </select>
-        </div>
-        <div className="filter-group">
-          <label>Filter by Name:</label>
-          <input
-            type="text"
-            value={filterText}
-            onChange={handleFilterChange}
-            placeholder="Enter product name"
-            className="input-field"
-            aria-label="Filter results by name"
-          />
-        </div>
-      </div>
-
-      <h2>Recommendations:</h2>
-      <div className="recommendations-container">
-        {filteredResults.length === 0 ? (
-          <p>No recommendations available.</p>
-        ) : (
-          filteredResults.map((item, index) => (
-            <div key={index} className="recommendation-card">
-              <a href={item.url} target="_blank" rel="noopener noreferrer" className="recommendation-link">
-                <h3>{item.name}</h3>
-                <p>Price: {currency === "INR" ? `₹${item.price * 75}` : currency === "EUR" ? `€${item.price * 0.9}` : `$${item.price}`}</p>
-                <p>{item.description}</p>
-              </a>
+      {/* Search Section */}
+      <section className="search-section">
+        <div className="search-container">
+          <h2>Find Your Perfect Product</h2>
+          <p className="assistant-message">{getAssistantMessage()}</p>
+          
+          {error && <div className="error-message">{error}</div>}
+          
+          <div className="search-form">
+            <div className="input-group">
+              <input
+                type="text"
+                placeholder="What are you looking for?"
+                value={criteria.product}
+                onChange={(e) => setCriteria({...criteria, product: e.target.value})}
+                className="search-input"
+              />
+              
+              <input
+                type="number"
+                placeholder="Budget ($)"
+                value={criteria.budget}
+                onChange={(e) => setCriteria({...criteria, budget: e.target.value})}
+                className="budget-input"
+              />
             </div>
-          ))
-        )}
-      </div>
-
-      <div className="chat-container">
-        <h2>Chat with Assistant</h2>
-        <div className="chat-messages">
-          {chatMessages.map((message, index) => (
-            <div key={index} className={message.sender === "user" ? "user-message" : "chatgpt-message"}>
-              {message.text}
+            
+            <div className="search-options">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={useNLP}
+                  onChange={(e) => setUseNLP(e.target.checked)}
+                />
+                Use Smart Search (NLP)
+              </label>
+              
+              <select 
+                value={currency} 
+                onChange={(e) => setCurrency(e.target.value)}
+                className="currency-select"
+              >
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="LKR">LKR (₨)</option>
+              </select>
             </div>
-          ))}
+            
+            <button 
+              onClick={handleSearch} 
+              disabled={loading}
+              className="search-button"
+            >
+              {loading ? '🔍 Searching...' : '🔍 Search Products'}
+            </button>
+          </div>
         </div>
-        <button onClick={() => handleChatSubmit("Hi")} className="chat-button">Send Message</button>
-      </div>
-      <h5>Copyright © 2024 Design & Developed by AI VANGUARD team. All Rights Reserved.</h5>
+      </section>
+
+      {/* Results Section */}
+      {results.length > 0 && !showFavorites && !showPriceAlerts && (
+        <section className="results-section">
+          <div className="results-header">
+            <h3>Found {results.length} products</h3>
+            
+            <div className="results-controls">
+              <input
+                type="text"
+                placeholder="Filter results..."
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                className="filter-input"
+              />
+              
+              <select 
+                value={sortOption} 
+                onChange={(e) => setSortOption(e.target.value)}
+                className="sort-select"
+              >
+                <option value="price">Sort by Price</option>
+                <option value="name">Sort by Name</option>
+                <option value="rating">Sort by Rating</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="products-grid">
+            {sortedResults.map((product, index) => (
+              <ProductCard
+                key={index}
+                product={product}
+                onAddToFavorites={handleAddToFavorites}
+                onPriceAlert={handlePriceAlert}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Price Alerts Section */}
+      {showPriceAlerts && (
+        <section className="results-section">
+          <div className="results-header">
+            <h3>🔔 Your Price Alerts ({priceAlerts.length} active)</h3>
+            <button onClick={handleShowPriceAlerts} className="close-favorites-btn">
+              ✕ Close Alerts
+            </button>
+          </div>
+          
+          {alertsLoading && <div className="loading">Loading price alerts...</div>}
+          
+          {!alertsLoading && priceAlerts.length === 0 && (
+            <div className="no-favorites">
+              <p>🔔 No price alerts set yet!</p>
+              <p>Search for products and set alerts to get notified when prices drop.</p>
+            </div>
+          )}
+          
+          {!alertsLoading && priceAlerts.length > 0 && (
+            <div className="products-grid">
+              {priceAlerts.map((alert) => (
+                <div key={alert.id} className="product-card alert-card">
+                  <h3>{alert.product_name}</h3>
+                  <div className="alert-info">
+                    <p className="target-price">🎯 Target Price: <strong>${alert.target_price}</strong></p>
+                    <p className="status">Status: <span className={`status-${alert.is_active ? 'active' : 'inactive'}`}>
+                      {alert.is_active ? '🟢 Active' : '🔴 Inactive'}
+                    </span></p>
+                    <p className="created">Created: {new Date(alert.created_at).toLocaleDateString()}</p>
+                    {alert.last_checked && (
+                      <p className="last-checked">Last checked: {new Date(alert.last_checked).toLocaleString()}</p>
+                    )}
+                  </div>
+                  <div className="card-actions">
+                    {alert.product_url && (
+                      <a href={alert.product_url} target="_blank" rel="noopener noreferrer" className="view-btn">
+                        Check Current Price
+                      </a>
+                    )}
+                    <button onClick={() => removePriceAlert(alert.id)} className="remove-btn">
+                      🗑️ Remove Alert
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Favorites Section */}
+      {showFavorites && (
+        <section className="results-section">
+          <div className="results-header">
+            <h3>❤️ Your Favorites ({favorites.length} items)</h3>
+            <button onClick={handleShowFavorites} className="close-favorites-btn">
+              ✕ Close Favorites
+            </button>
+          </div>
+          
+          {favoritesLoading && <div className="loading">Loading favorites...</div>}
+          
+          {!favoritesLoading && favorites.length === 0 && (
+            <div className="no-favorites">
+              <p>No favorites yet! Start adding products you like.</p>
+            </div>
+          )}
+          
+          {!favoritesLoading && favorites.length > 0 && (
+            <div className="products-grid">
+              {favorites.map((favorite) => (
+                <div key={favorite.id} className="product-card favorite-card">
+                  <h3>{favorite.product_name}</h3>
+                  <p className="price">${favorite.price}</p>
+                  <p className="platform">Platform: {favorite.platform}</p>
+                  <p className="date">Added: {new Date(favorite.added_at).toLocaleDateString()}</p>
+                  <div className="card-actions">
+                    {favorite.product_url && (
+                      <a href={favorite.product_url} target="_blank" rel="noopener noreferrer" className="view-btn">
+                        View Product
+                      </a>
+                    )}
+                    <button onClick={() => removeFavorite(favorite.id)} className="remove-btn">
+                      🗑️ Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+      
+      <footer className="app-footer">
+        <p>© 2025 AI Shopping Agent - Your Smart Shopping Companion</p>
+      </footer>
+    </div>
+  );
+}
+
+// Main App Component with Auth Provider
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+
+function AppContent() {
+  const { isAuthenticated } = useAuth();
+  
+  return (
+    <div className="App">
+      {isAuthenticated ? <ShoppingApp /> : <LoginForm />}
     </div>
   );
 }
