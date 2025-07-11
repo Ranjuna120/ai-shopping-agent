@@ -2,11 +2,26 @@
 
 const path = require('path');
 const fs = require('fs');
-const getPublicUrlOrPath = require('react-dev-utils/getPublicUrlOrPath');
+
+// Function to get public URL or path
+function getPublicUrlOrPath(isDevelopment, homepage, envPublicUrl) {
+  const stubDomain = 'https://create-react-app.dev';
+  if (envPublicUrl) {
+    envPublicUrl = envPublicUrl.endsWith('/') ? envPublicUrl : envPublicUrl + '/';
+    const validPublicUrl = new URL(envPublicUrl, stubDomain);
+    return isDevelopment ? envPublicUrl.startsWith('.') ? '/' : validPublicUrl.pathname : envPublicUrl;
+  }
+  if (homepage) {
+    homepage = homepage.endsWith('/') ? homepage : homepage + '/';
+    const validHomepageUrl = new URL(homepage, stubDomain);
+    return isDevelopment ? (homepage.startsWith('.') ? '/' : validHomepageUrl.pathname) : homepage.startsWith('.') ? homepage : validHomepageUrl.pathname;
+  }
+  return '/';
+}
 
 // Make sure any symlinks in the project folder are resolved:
 // https://github.com/facebook/create-react-app/issues/637
-const appDirectory = fs.realpathSync(process.cwd());
+const appDirectory = fs.realpathSync(__dirname).replace(/[\\\/]config$/, '');
 const resolveApp = relativePath => path.resolve(appDirectory, relativePath);
 
 // We use `PUBLIC_URL` environment variable or "homepage" field to infer
