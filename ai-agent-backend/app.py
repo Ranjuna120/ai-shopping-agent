@@ -12,9 +12,14 @@ import requests
 from bs4 import BeautifulSoup
 from forex_python.converter import CurrencyRates
 import speech_recognition as sr
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Set up OpenAI API for Generative AI
-openai.api_key = 'your-openai-api-key'
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # Load the NLP model
 nlp = spacy.load("en_core_web_sm")
