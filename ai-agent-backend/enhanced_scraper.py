@@ -25,12 +25,19 @@ class EnhancedScraper:
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--window-size=1920,1080')
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
         
-        driver = webdriver.Chrome(options=options)
-        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        return driver
+        try:
+            driver = webdriver.Chrome(options=options)
+            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            return driver
+        except Exception as e:
+            print(f"Error creating WebDriver: {e}")
+            return None
     
     def rate_limit(self, min_delay=1, max_delay=3):
         """Add random delay between requests"""
@@ -41,12 +48,16 @@ class EnhancedScraper:
         products = []
         driver = self.get_driver()
         
+        if not driver:
+            print("Failed to initialize WebDriver for Amazon")
+            return products
+        
         try:
             search_url = f"https://www.amazon.com/s?k={query.replace(' ', '+')}"
             driver.get(search_url)
             
             # Wait for products to load
-            WebDriverWait(driver, 10).wait(
+            WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, '[data-component-type="s-search-result"]'))
             )
             
@@ -54,21 +65,98 @@ class EnhancedScraper:
             
             for i, element in enumerate(product_elements[:max_results]):
                 try:
-                    name_elem = element.find_element(By.CSS_SELECTOR, 'h2 a span')
-                    price_elem = element.find_element(By.CSS_SELECTOR, '.a-price-whole')
-                    rating_elem = element.find_element(By.CSS_SELECTOR, '.a-icon-alt')
-                    image_elem = element.find_element(By.CSS_SELECTOR, 'img')
-                    link_elem = element.find_element(By.CSS_SELECTOR, 'h2 a')
+                    # Try multiple selectors for product name
+                    name_elem = None
+                    name_selectors = [
+                        'h2 a span',
+                        'h2 span',
+                        '[data-cy="title-recipe-title"]',
+                        '.s-title-instructions-style span',
+                        '.a-size-medium.a-color-base',
+                        '.a-size-mini span'
+                    ]
                     
-                    product = {
-                        'name': name_elem.text.strip(),
-                        'price': float(price_elem.text.replace(',', '')),
-                        'rating': float(rating_elem.get_attribute('innerHTML').split()[0]) if rating_elem else 0,
-                        'image': image_elem.get_attribute('src'),
-                        'url': 'https://amazon.com' + link_elem.get_attribute('href'),
-                        'platform': 'Amazon'
-                    }
-                    products.append(product)
+                    for selector in name_selectors:
+                        try:
+                            name_elem = element.find_element(By.CSS_SELECTOR, selector)
+                            if name_elem and name_elem.text.strip():
+                                break
+                        except:
+                            continue
+                    
+                    if not name_elem or not name_elem.text.strip():
+                        continue
+                    
+                    # Try multiple selectors for price
+                    price_elem = None
+                    price_selectors = [
+                        '.a-price-whole',
+                        '.a-price .a-offscreen',
+                        '.a-price-fraction',
+                        '.a-price-range'
+                    ]
+                    
+                    for selector in price_selectors:
+                        try:
+                            price_elem = element.find_element(By.CSS_SELECTOR, selector)
+                            if price_elem and price_elem.text.strip():
+                                break
+                        except:
+                            continue
+                    
+                    # Try to get link
+                    link_elem = None
+                    link_selectors = ['h2 a', 'a[href*="/dp/"]', '.a-link-normal']
+                    
+                    for selector in link_selectors:
+                        try:
+                            link_elem = element.find_element(By.CSS_SELECTOR, selector)
+                            if link_elem:
+                                break
+                        except:
+                            continue
+                    
+                    # Try to get image
+                    image_elem = None
+                    try:
+                        image_elem = element.find_element(By.CSS_SELECTOR, 'img')
+                    except:
+                        pass
+                    
+                    # Try to get rating
+                    rating = 0
+                    try:
+                        rating_elem = element.find_element(By.CSS_SELECTOR, '.a-icon-alt')
+                        rating_text = rating_elem.get_attribute('innerHTML') or rating_elem.text
+                        if rating_text:
+                            rating = float(rating_text.split()[0])
+                    except:
+                        pass
+                    
+                    # Parse price
+                    price = 0
+                    if price_elem:
+                        price_text = price_elem.text.replace('$', '').replace(',', '').strip()
+                        try:
+                            price = float(price_text)
+                        except:
+                            # Try to extract first number from text
+                            import re
+                            numbers = re.findall(r'\d+\.?\d*', price_text)
+                            if numbers:
+                                price = float(numbers[0])
+                    
+                    if name_elem and name_elem.text.strip():
+                        product = {
+                            'name': name_elem.text.strip(),
+                            'price': price,
+                            'rating': rating,
+                            'image': image_elem.get_attribute('src') if image_elem else '',
+                            'url': link_elem.get_attribute('href') if link_elem else '',
+                            'platform': 'Amazon'
+                        }
+                        products.append(product)
+                        print(f"Successfully scraped Amazon product: {product['name'][:50]}...")
                     
                 except Exception as e:
                     print(f"Error parsing Amazon product {i}: {e}")
@@ -86,6 +174,10 @@ class EnhancedScraper:
         """Enhanced eBay scraping"""
         products = []
         driver = self.get_driver()
+        
+        if not driver:
+            print("Failed to initialize WebDriver for eBay")
+            return products
         
         try:
             search_url = f"https://www.ebay.com/sch/i.html?_nkw={query.replace(' ', '+')}"
@@ -129,32 +221,111 @@ class EnhancedScraper:
         products = []
         driver = self.get_driver()
         
+        if not driver:
+            print("Failed to initialize WebDriver for Walmart")
+            return products
+        
         try:
             search_url = f"https://www.walmart.com/search?q={query.replace(' ', '+')}"
             driver.get(search_url)
             
             # Wait for products to load
-            time.sleep(3)
+            time.sleep(5)
             
-            product_elements = driver.find_elements(By.CSS_SELECTOR, '[data-testid="item"]')[:max_results]
+            # Try multiple selectors for product containers
+            product_elements = []
+            container_selectors = [
+                '[data-testid="item"]',
+                '[data-automation-id="product-tile"]',
+                '.search-result-gridview-item',
+                '.Grid-col'
+            ]
             
-            for element in product_elements:
+            for selector in container_selectors:
                 try:
-                    name = element.find_element(By.CSS_SELECTOR, '[data-testid="product-title"]').text
-                    price_elem = element.find_element(By.CSS_SELECTOR, '[itemprop="price"]')
-                    price = float(price_elem.get_attribute('content'))
+                    elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                    if elements:
+                        product_elements = elements[:max_results]
+                        print(f"Found {len(product_elements)} Walmart products using selector: {selector}")
+                        break
+                except:
+                    continue
+            
+            for i, element in enumerate(product_elements):
+                try:
+                    # Try multiple selectors for product name
+                    name = None
+                    name_selectors = [
+                        '[data-testid="product-title"]',
+                        '[data-automation-id="product-title"]',
+                        '.normal.dark-gray',
+                        'span[title]'
+                    ]
                     
-                    link_elem = element.find_element(By.CSS_SELECTOR, 'a')
-                    link = 'https://walmart.com' + link_elem.get_attribute('href')
+                    for selector in name_selectors:
+                        try:
+                            name_elem = element.find_element(By.CSS_SELECTOR, selector)
+                            if name_elem and name_elem.text.strip():
+                                name = name_elem.text.strip()
+                                break
+                        except:
+                            continue
                     
-                    product = {
-                        'name': name,
-                        'price': price,
-                        'url': link,
-                        'platform': 'Walmart',
-                        'rating': 0
-                    }
-                    products.append(product)
+                    if not name:
+                        continue
+                    
+                    # Try multiple selectors for price
+                    price = 0
+                    price_selectors = [
+                        '[itemprop="price"]',
+                        '[data-testid="price"]',
+                        '.price-group',
+                        '.price-current'
+                    ]
+                    
+                    for selector in price_selectors:
+                        try:
+                            price_elem = element.find_element(By.CSS_SELECTOR, selector)
+                            if price_elem:
+                                price_text = price_elem.get_attribute('content') or price_elem.text
+                                if price_text:
+                                    # Clean price text
+                                    import re
+                                    price_clean = re.sub(r'[^\d.]', '', price_text)
+                                    if price_clean:
+                                        price = float(price_clean)
+                                        break
+                        except:
+                            continue
+                    
+                    # Try to get link
+                    link = ''
+                    try:
+                        link_elem = element.find_element(By.CSS_SELECTOR, 'a')
+                        href = link_elem.get_attribute('href')
+                        if href:
+                            if href.startswith('/'):
+                                link = 'https://walmart.com' + href
+                            else:
+                                link = href
+                    except:
+                        pass
+                    
+                    if name and price > 0:
+                        product = {
+                            'name': name,
+                            'price': price,
+                            'url': link,
+                            'platform': 'Walmart',
+                            'rating': 0,
+                            'image': ''
+                        }
+                        products.append(product)
+                        print(f"Successfully scraped Walmart product: {product['name'][:50]}...")
+                    
+                except Exception as e:
+                    print(f"Error parsing Walmart product {i}: {e}")
+                    continue
                     
                 except Exception as e:
                     continue
