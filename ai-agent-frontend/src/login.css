@@ -1,0 +1,61 @@
+/* src/login.css */
+.login-container {
+    width: 300px;
+    margin: 50px auto;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+    background-image: url('../src/images/bg1.jpeg'); /* Add your background image path here */
+    background-size: cover;
+    background-position: center;
+    text-align: center; /* Center the text inside the container */
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 20px; /* Add some space below the title */
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+}
+
+div {
+    margin-bottom: 15px;
+}
+
+label {
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+
+input {
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+button {
+    padding: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+/* Logo styling */
+.logo {
+    width: 100px; /* Adjust logo size */
+    margin-bottom: 20px; /* Space between logo and text */
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}

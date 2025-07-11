@@ -1,0 +1,287 @@
+/* General App Container */
+.app-container {
+  font-family: 'Arial', sans-serif;
+  margin: 0;
+  padding: 20px;
+  background-size: cover;
+  background-position: center;
+  background-image: url('../src/images/bg4.jpeg'); /* Add your background image path here */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  animation: fadeIn 1.5s ease-in-out; /* Animation for the app container */
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.title {
+  text-align: center;
+  color: #26a5e0;
+  font-size: 2.5rem;
+  margin-bottom: 30px;
+  animation: slideIn 1s ease-out; /* Animation for title */
+}
+
+@keyframes slideIn {
+  0% { transform: translateY(-50px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* Two-Column Layout */
+.form-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Two equal columns */
+  gap: 20px;
+  margin-bottom: 40px;
+  animation: fadeInUp 1s ease-out; /* Animation for the form */
+  width: 100%;
+  max-width: 900px;
+}
+
+@keyframes fadeInUp {
+  0% { transform: translateY(50px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.input-field, .select-field {
+  padding: 10px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  width: 100%;
+  margin-top: 5px;
+  transition: border-color 0.3s ease;
+}
+
+.input-field:focus, .select-field:focus {
+  border-color: #4CAF50;
+  outline: none;
+}
+
+.submit-button {
+  padding: 10px 20px;
+  font-size: 1.2rem;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 20px;
+  transition: background-color 0.3s ease;
+}
+
+.submit-button:hover {
+  background-color: #45a049;
+}
+
+.voice-button {
+  padding: 10px 20px;
+  font-size: 1rem;
+  background-color: #FF9800;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  width: 100%;
+  margin-top: 20px;
+  cursor: pointer;
+}
+
+.voice-button:hover {
+  background-color: #f57c00;
+}
+
+/* Filters and Recommendations */
+.filters-container {
+  grid-column: span 2; /* Spans both columns */
+  margin-top: 40px;
+  margin-bottom: 30px;
+}
+
+.recommendations-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+}
+
+.recommendation-card {
+  background-color: rgba(255, 255, 255, 0.9); /* Semi-transparent background */
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 250px;
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.recommendation-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+}
+
+.chat-container {
+  margin-top: 40px;
+  background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent background for chat */
+  padding: 20px;
+  border-radius: 10px;
+  width: 80%;
+  max-width: 600px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.chat-messages {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+
+.chat-message {
+  margin-bottom: 10px;
+}
+
+.chat-message.user {
+  text-align: right;
+}
+
+.chat-message.chatgpt {
+  text-align: left;
+  color: #4CAF50;
+}
+
+.chat-input {
+  width: 100%;
+  padding: 10px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+
+/* src/App.css */
+.login-container {
+  width: 300px;
+  margin: 50px auto;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+}
+
+h2 {
+  text-align: center;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+}
+
+div {
+  margin-bottom: 15px;
+}
+
+label {
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+input {
+  padding: 8px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  padding: 10px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #45a049;
+}
+
+/* src/login.css */
+.login-container {
+  margin-top: -100px;
+  width: 1200px; /* Adjust the width of the container */
+  height: 600px;
+  margin: 50px auto;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+  background-image: url('../src/images/bg1.jpeg'); /* Add your background image path here */
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Center the content horizontally */
+  justify-content: center; /* Center the content vertically */
+  text-align: center; /* Center the text inside the container */
+}
+
+h2 {
+  margin-top: 20px; /* Space above the title */
+  margin-bottom: 20px; /* Space below the title */
+  font-size: 36px;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  width: 100%; /* Make the form take up the full width of the container */
+}
+
+div {
+  margin-bottom: 15px;
+}
+
+label {
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+input {
+  padding: 8px;
+  font-size: 26px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  padding: 20px;
+  background-color: #4CAF50;
+  color: white;
+  font-size: 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+button:hover {
+  background-color: #45a049;
+}
+
+/* Logo styling */
+.logo {
+  width: 100px; /* Adjust logo size */
+  margin-bottom: 20px; /* Space between logo and title */
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
