@@ -328,7 +328,7 @@ function App() {
         </div>
         <button onClick={() => handleChatSubmit("Hi")} className="chat-button">Send Message</button>
       </div>
-      <h5>Copyright © 2024 Design & Developed by Vinuka Dinethmin & Danuddika Jayasundara. All Rights Reserved.</h5>
+      <h5>Copyright © 2024 Design & Developed by AI VANGUARD team. All Rights Reserved.</h5>
     </div>
   );
 }
