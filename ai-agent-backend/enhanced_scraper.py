@@ -338,6 +338,80 @@ class EnhancedScraper:
         self.rate_limit()
         return products
     
+    def get_current_price(self, product_url):
+        """Get current price for a specific product URL"""
+        try:
+            driver = self.get_driver()
+            driver.get(product_url)
+            
+            # Wait for page to load
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+            
+            # Try different price selectors based on the URL
+            price_selectors = []
+            
+            if 'amazon' in product_url.lower():
+                price_selectors = [
+                    '.a-price-whole',
+                    '.a-offscreen',
+                    '.a-price.a-text-price.a-size-medium.apexPriceToPay',
+                    '.a-price-range',
+                    'span.a-price',
+                    '[data-a-size="xl"] .a-offscreen',
+                    '.a-price .a-offscreen'
+                ]
+            elif 'ebay' in product_url.lower():
+                price_selectors = [
+                    '.price .amt',
+                    '.notranslate',
+                    '.u-flL.condText',
+                    '.amt.vi-price .notranslate',
+                    '.display-price',
+                    '.vim x-price-primary'
+                ]
+            elif 'walmart' in product_url.lower():
+                price_selectors = [
+                    '[itemprop="price"]',
+                    '[data-testid="price"]',
+                    '.price-group',
+                    '.price-current'
+                ]
+            else:
+                # Generic selectors for other sites
+                price_selectors = [
+                    '.price',
+                    '[class*="price"]',
+                    '[data-price]',
+                    '[itemprop="price"]'
+                ]
+            
+            # Try each selector
+            for selector in price_selectors:
+                try:
+                    price_elem = driver.find_element(By.CSS_SELECTOR, selector)
+                    if price_elem:
+                        price_text = price_elem.get_attribute('content') or price_elem.text
+                        if price_text:
+                            # Clean price text
+                            import re
+                            price_match = re.search(r'[\d,]+\.?\d*', price_text.replace(',', ''))
+                            if price_match:
+                                price = float(price_match.group())
+                                return price
+                except:
+                    continue
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error getting price for {product_url}: {e}")
+            return None
+        finally:
+            if 'driver' in locals():
+                driver.quit()
+    
     def scrape_all_platforms(self, query, max_results_per_platform=10):
         """Scrape multiple platforms concurrently"""
         all_products = []
