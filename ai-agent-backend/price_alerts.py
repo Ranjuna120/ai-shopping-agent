@@ -4,7 +4,7 @@ from enhanced_scraper import EnhancedScraper
 import threading
 import time
 import smtplib
-from email.mime.text import MimeText
+from email.mime.text import MIMEText
 import os
 
 class PriceAlertManager:
@@ -24,7 +24,7 @@ class PriceAlertManager:
     def send_email_alert(self, user_email, product_name, target_price, current_price, product_url):
         """Send email notification when price drops"""
         try:
-            msg = MimeText(f"""
+            msg = MIMEText(f"""
             Great news! The price for "{product_name}" has dropped!
             
             Target Price: ${target_price:.2f}
@@ -151,9 +151,8 @@ class PriceAlertManager:
         @auth_manager.require_auth
         def get_price_alerts():
             alerts = PriceAlert.query.filter_by(
-                user_id=request.current_user_id,
-                is_active=True
-            ).all()
+                user_id=request.current_user_id
+            ).order_by(PriceAlert.created_at.desc()).all()
             
             return jsonify([{
                 'id': alert.id,
@@ -161,7 +160,9 @@ class PriceAlertManager:
                 'product_url': alert.product_url,
                 'target_price': alert.target_price,
                 'current_price': alert.current_price,
-                'created_at': alert.created_at.isoformat()
+                'is_active': alert.is_active,
+                'created_at': alert.created_at.isoformat(),
+                'last_checked': alert.last_checked.isoformat() if alert.last_checked else None
             } for alert in alerts])
         
         @self.app.route('/api/price-alerts/<int:alert_id>', methods=['DELETE'])
