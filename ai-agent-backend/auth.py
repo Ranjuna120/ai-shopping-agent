@@ -4,6 +4,7 @@ from functools import wraps
 import jwt
 import datetime
 import os
+import json
 
 class AuthManager:
     def __init__(self, app, db):
