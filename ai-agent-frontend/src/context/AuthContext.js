@@ -15,6 +15,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
 
   // Configure axios defaults
   if (token) {
@@ -77,28 +78,35 @@ export const AuthProvider = ({ children }) => {
   };
 
   const checkAuth = async () => {
-    if (!token) return;
+    if (!token) {
+      setInitializing(false);
+      return;
+    }
     
     try {
       const response = await axios.get('/api/auth/profile');
       setUser(response.data.user);
     } catch (error) {
+      console.error('Auth check failed:', error);
       logout();
+    } finally {
+      setInitializing(false);
     }
   };
 
   React.useEffect(() => {
     checkAuth();
-  }, []);
+  }, [token]);
 
   const value = {
     user,
     token,
     loading,
+    initializing,
     login,
     register,
     logout,
-    isAuthenticated: !!token
+    isAuthenticated: !!token && !!user
   };
 
   return (
