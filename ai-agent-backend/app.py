@@ -25,6 +25,11 @@ db.init_app(app)
 from auth import AuthManager
 from price_alerts import PriceAlertManager
 from enhanced_scraper import EnhancedScraper
+from analytics import create_analytics_routes
+from ml_engine import create_ml_routes  
+from email_service import create_email_routes
+from data_processing import create_data_processing_routes
+from advanced_recommendations import create_advanced_recommendation_routes
 
 # Initialize managers
 auth_manager = AuthManager(app, db)
@@ -34,6 +39,13 @@ scraper = EnhancedScraper()
 # Register authentication routes
 auth_manager.register_routes()
 price_alert_manager.register_routes(auth_manager)
+
+# Register additional module routes
+create_analytics_routes(app, db)
+create_ml_routes(app, db)
+create_email_routes(app, db)
+create_data_processing_routes(app, db)
+create_advanced_recommendation_routes(app, db)
 
 # Create database tables
 with app.app_context():
