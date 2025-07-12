@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import './App.css';
 import logo from './images/logo.jpg';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -119,6 +119,26 @@ function ShoppingApp() {
   const [priceAlerts, setPriceAlerts] = useState([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
 
+  // Load favorites and price alerts when component mounts or user changes
+  useEffect(() => {
+    if (user) {
+      loadFavorites();
+      loadPriceAlerts();
+    }
+  }, [user]);
+
+  // Auto-refresh favorites and price alerts every 30 seconds
+  useEffect(() => {
+    if (user) {
+      const interval = setInterval(() => {
+        loadFavorites();
+        loadPriceAlerts();
+      }, 30000); // 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     let greeting = '';
@@ -167,11 +187,16 @@ function ShoppingApp() {
 
   const handleAddToFavorites = async (product) => {
     try {
+      const token = localStorage.getItem('token');
       await axios.post('/api/favorites', {
         product_name: product.name,
         product_url: product.url,
         price: product.price,
         platform: product.platform
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       alert('Added to favorites!');
       // Reload favorites to update count
@@ -180,6 +205,11 @@ function ShoppingApp() {
       console.error('Error adding to favorites:', error);
       if (error.response?.status === 409) {
         alert('Product already in favorites!');
+      } else if (error.response?.status === 401) {
+        alert('Please login again to add favorites');
+        logout();
+      } else {
+        alert('Failed to add to favorites. Please try again.');
       }
     }
   };
@@ -196,10 +226,15 @@ function ShoppingApp() {
       }
       
       try {
+        const token = localStorage.getItem('token');
         await axios.post('/api/price-alerts', {
           product_name: product.name,
           product_url: product.url,
           target_price: target
+        }, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
         alert(`✅ Price alert set! You'll be notified when price drops below $${target}`);
         // Reload price alerts if view is open
@@ -210,6 +245,9 @@ function ShoppingApp() {
         console.error('Error creating price alert:', error);
         if (error.response?.status === 409) {
           alert('Price alert already exists for this product!');
+        } else if (error.response?.status === 401) {
+          alert('Please login again to set price alerts');
+          logout();
         } else {
           alert('Failed to create price alert. Please try again.');
         }
@@ -219,21 +257,39 @@ function ShoppingApp() {
 
   const removePriceAlert = async (alertId) => {
     try {
-      await axios.delete(`/api/price-alerts/${alertId}`);
+      const token = localStorage.getItem('token');
+      await axios.delete(`/api/price-alerts/${alertId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       setPriceAlerts(priceAlerts.filter(alert => alert.id !== alertId));
       alert('🗑️ Price alert removed!');
     } catch (error) {
       console.error('Error removing price alert:', error);
+      if (error.response?.status === 401) {
+        alert('Please login again');
+        logout();
+      }
     }
   };
 
   const loadFavorites = async () => {
     setFavoritesLoading(true);
     try {
-      const response = await axios.get('/api/favorites');
+      const token = localStorage.getItem('token');
+      const response = await axios.get('/api/favorites', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       setFavorites(response.data);
     } catch (error) {
       console.error('Error loading favorites:', error);
+      if (error.response?.status === 401) {
+        // Token expired, user needs to login again
+        logout();
+      }
     } finally {
       setFavoritesLoading(false);
     }
@@ -242,10 +298,19 @@ function ShoppingApp() {
   const loadPriceAlerts = async () => {
     setAlertsLoading(true);
     try {
-      const response = await axios.get('/api/price-alerts');
+      const token = localStorage.getItem('token');
+      const response = await axios.get('/api/price-alerts', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       setPriceAlerts(response.data);
     } catch (error) {
       console.error('Error loading price alerts:', error);
+      if (error.response?.status === 401) {
+        // Token expired, user needs to login again
+        logout();
+      }
     } finally {
       setAlertsLoading(false);
     }
@@ -254,7 +319,8 @@ function ShoppingApp() {
   const handleShowFavorites = () => {
     setShowFavorites(!showFavorites);
     setShowPriceAlerts(false); // Hide alerts when showing favorites
-    if (!showFavorites && favorites.length === 0) {
+    // Data is already loaded via useEffect, just refresh to get latest
+    if (!showFavorites) {
       loadFavorites();
     }
   };
@@ -262,18 +328,28 @@ function ShoppingApp() {
   const handleShowPriceAlerts = () => {
     setShowPriceAlerts(!showPriceAlerts);
     setShowFavorites(false); // Hide favorites when showing alerts
-    if (!showPriceAlerts && priceAlerts.length === 0) {
+    // Data is already loaded via useEffect, just refresh to get latest
+    if (!showPriceAlerts) {
       loadPriceAlerts();
     }
   };
 
   const removeFavorite = async (favoriteId) => {
     try {
-      await axios.delete(`/api/favorites/${favoriteId}`);
+      const token = localStorage.getItem('token');
+      await axios.delete(`/api/favorites/${favoriteId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       setFavorites(favorites.filter(fav => fav.id !== favoriteId));
       alert('Removed from favorites!');
     } catch (error) {
       console.error('Error removing favorite:', error);
+      if (error.response?.status === 401) {
+        alert('Please login again');
+        logout();
+      }
     }
   };
 
@@ -521,7 +597,19 @@ function App() {
 }
 
 function AppContent() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, initializing } = useAuth();
+  
+  if (initializing) {
+    return (
+      <div className="App">
+        <div className="loading-screen">
+          <img src={logo} alt="AI Shopping Agent" className="loading-logo" />
+          <h2>🛒 AI Shopping Agent</h2>
+          <p>Loading your shopping experience...</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="App">
