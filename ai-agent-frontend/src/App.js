@@ -118,6 +118,9 @@ function ShoppingApp() {
   const [showPriceAlerts, setShowPriceAlerts] = useState(false);
   const [priceAlerts, setPriceAlerts] = useState([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [transcript, setTranscript] = useState('');
 
   // Load favorites and price alerts when component mounts or user changes
   useEffect(() => {
@@ -139,6 +142,18 @@ function ShoppingApp() {
     }
   }, [user]);
 
+  // Initialize speech recognition
+  useEffect(() => {
+    // Check if speech recognition is supported
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      setVoiceSupported(true);
+    } else {
+      console.warn('Speech recognition not supported in this browser');
+      setVoiceSupported(false);
+    }
+  }, []);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     let greeting = '';
@@ -150,7 +165,7 @@ function ShoppingApp() {
 
   const getAssistantMessage = () => {
     if (!criteria.budget && !criteria.product) {
-      return "What are you looking for today?";
+      return "What are you looking for today? You can type or use voice search! 🎤";
     } else if (criteria.budget && !criteria.product) {
       return "Please tell me the product you're looking for.";
     } else if (!criteria.budget && criteria.product) {
@@ -182,6 +197,114 @@ function ShoppingApp() {
       setError(error.response?.data?.error || 'Search failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startVoiceRecognition = () => {
+    if (!voiceSupported) {
+      alert('🎤 Voice recognition is not supported in your browser. Please try Chrome or Edge.');
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    setIsListening(true);
+    setTranscript('');
+
+    recognition.onstart = () => {
+      console.log('🎤 Voice recognition started');
+    };
+
+    recognition.onresult = (event) => {
+      const speechResult = event.results[0][0].transcript.toLowerCase();
+      setTranscript(speechResult);
+      console.log('🗣️ Speech recognized:', speechResult);
+      
+      // Parse the voice command
+      parseVoiceCommand(speechResult);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('🚫 Speech recognition error:', event.error);
+      setIsListening(false);
+      
+      if (event.error === 'not-allowed') {
+        alert('🎤 Microphone access denied. Please allow microphone access and try again.');
+      } else if (event.error === 'no-speech') {
+        alert('🔇 No speech detected. Please try again.');
+      } else {
+        alert(`🚫 Voice recognition error: ${event.error}`);
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      console.log('🎤 Voice recognition ended');
+    };
+
+    recognition.start();
+  };
+
+  const parseVoiceCommand = (speechText) => {
+    // Extract product and budget from speech
+    let detectedProduct = '';
+    let detectedBudget = '';
+
+    // Look for budget patterns like "under 500", "budget of 300", "500 dollars"
+    const budgetPatterns = [
+      /(?:under|below|less than|maximum|max|budget of?)\s*\$?(\d+)/i,
+      /\$(\d+)\s*(?:budget|maximum|max|limit)/i,
+      /(\d+)\s*(?:dollars?|bucks|usd)/i,
+      /budget\s*(?:is|of)?\s*\$?(\d+)/i
+    ];
+
+    for (const pattern of budgetPatterns) {
+      const match = speechText.match(pattern);
+      if (match) {
+        detectedBudget = match[1];
+        break;
+      }
+    }
+
+    // Remove budget-related text and extract product
+    let productText = speechText;
+    if (detectedBudget) {
+      productText = speechText.replace(/(?:under|below|less than|maximum|max|budget of?)\s*\$?\d+/gi, '');
+      productText = productText.replace(/\$\d+\s*(?:budget|maximum|max|limit)/gi, '');
+      productText = productText.replace(/\d+\s*(?:dollars?|bucks|usd)/gi, '');
+      productText = productText.replace(/budget\s*(?:is|of)?\s*\$?\d+/gi, '');
+    }
+
+    // Remove common filler words and extract main product
+    const fillerWords = ['i want', 'i need', 'looking for', 'search for', 'find me', 'show me', 'a', 'an', 'the', 'some'];
+    fillerWords.forEach(filler => {
+      productText = productText.replace(new RegExp(`\\b${filler}\\b`, 'gi'), '');
+    });
+
+    detectedProduct = productText.trim();
+
+    // Update the form with detected values
+    if (detectedProduct) {
+      setCriteria(prev => ({ ...prev, product: detectedProduct }));
+    }
+    if (detectedBudget) {
+      setCriteria(prev => ({ ...prev, budget: detectedBudget }));
+    }
+
+    // Show success message
+    let message = '🎤 Voice command processed:\n';
+    if (detectedProduct) message += `🛍️ Product: ${detectedProduct}\n`;
+    if (detectedBudget) message += `💰 Budget: $${detectedBudget}\n`;
+    
+    if (detectedProduct || detectedBudget) {
+      alert(message + '\nYou can now search or modify the details!');
+    } else {
+      alert('🤔 Could not detect product or budget. Try saying something like:\n"Find me a laptop under 500 dollars" or "Looking for a smartphone budget of 300"');
     }
   };
 
@@ -411,7 +534,25 @@ function ShoppingApp() {
                 onChange={(e) => setCriteria({...criteria, budget: e.target.value})}
                 className="budget-input"
               />
+              
+              {voiceSupported && (
+                <button
+                  type="button"
+                  onClick={startVoiceRecognition}
+                  disabled={isListening}
+                  className={`voice-button ${isListening ? 'listening' : ''}`}
+                  title="Voice Search - Say something like 'Find me a laptop under 500 dollars'"
+                >
+                  {isListening ? '🎤 Listening...' : '🎤 Voice Search'}
+                </button>
+              )}
             </div>
+            
+            {transcript && (
+              <div className="voice-transcript">
+                <span className="transcript-label">🗣️ You said:</span> "{transcript}"
+              </div>
+            )}
             
             <div className="search-options">
               <label className="checkbox-label">
@@ -442,6 +583,22 @@ function ShoppingApp() {
             >
               {loading ? '🔍 Searching...' : '🔍 Search Products'}
             </button>
+            
+            {voiceSupported && (
+              <div className="voice-help">
+                <p className="voice-help-text">
+                  💡 <strong>Voice Search Tips:</strong> Try saying "Find me a laptop under 500 dollars" or "Looking for a smartphone budget of 300"
+                </p>
+              </div>
+            )}
+            
+            {!voiceSupported && (
+              <div className="voice-help voice-not-supported">
+                <p className="voice-help-text">
+                  🎤 <strong>Voice Search:</strong> Not supported in your browser. Please use Chrome, Edge, or Safari for voice features.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </section>
